@@ -1,6 +1,6 @@
 const int sumpSensorPin = 33;  // Change to the GPIO your sensor is connected to
 const int buttSensorPin = 25;
-const int solenoidRelayPin = 4;
+const int valveRelayPin = 4;
 const int pumpRelayPin = 2;
 int sumpHighTime;
 int buttHighTime;
@@ -19,12 +19,13 @@ void setup() {
   pinMode(sumpSensorPin, INPUT);
   pinMode(buttSensorPin, INPUT);
   pinMode(pumpRelayPin, OUTPUT);
-  pinMode(solenoidRelayPin, OUTPUT);
-  digitalWrite(solenoidRelayPin, LOW);
+  pinMode(valveRelayPin, OUTPUT);
+  digitalWrite(valveRelayPin, HIGH);
+  delay(10000);
 }
 float sumpRead() {
-  sumpHighTime = pulseIn(sumpSensorPin, HIGH);
-  sumpLowTime = pulseIn(sumpSensorPin, LOW);
+  sumpHighTime = pulseIn(sumpSensorPin, HIGH, 1000000);
+  sumpLowTime = pulseIn(sumpSensorPin, LOW, 1000000);
   
   if (sumpHighTime > 0 && sumpLowTime > 0) {
     sumpPeriod = sumpHighTime + sumpLowTime;  // One cycle is being read here, by measuring the time of the pin being high, and the time of the pin being low, then these times are added together to get the period.
@@ -34,8 +35,8 @@ float sumpRead() {
 }
 
 float buttRead() {
-  buttHighTime = pulseIn(buttSensorPin, HIGH);
-  buttLowTime = pulseIn(buttSensorPin, LOW);
+  buttHighTime = pulseIn(buttSensorPin, HIGH, 1000000);
+  buttLowTime = pulseIn(buttSensorPin, LOW, 1000000);
   
   if (buttHighTime > 0 && buttLowTime > 0) {
     buttPeriod = buttHighTime + buttLowTime;  // One cycle is being read here, by measuring the time of the pin being high, and the time of the pin being low, then these times are added together to get the period.
@@ -46,39 +47,48 @@ float buttRead() {
 
 
 void loop() {
-  // Measure the HIGH and LOW pulse durations
   SSV = sumpRead();
   BSV = buttRead();
-  Serial.print(SSV);
-  Serial.print(" ");
-  Serial.print(BSV);
-  Serial.print(" ");
-
-  if (SSV > 100 && BSV < 50) {
-  //s1,b0,pump on,solenoid closed
-    if (repeatVal > 100) { 
-      digitalWrite(pumpRelayPin, HIGH);
-      digitalWrite(solenoidRelayPin, LOW);
-      Serial.println("1,0,on,closed");
-    }
-    if (repeatVal <= 100) {
-        repeatVal++;
-    }
-  
-  } else if (SSV > 100 && BSV > 50 ) {
-  //s1,b1,pump off,solenoid open
-    digitalWrite(pumpRelayPin, LOW);
-    digitalWrite(solenoidRelayPin, HIGH);
-    Serial.println("1,1,off,open");
-    delay(300000);
-    repeatVal = 0;
-  } else if (SSV < 100) {
-  //s0,bX,pump off,solenoid closed
-    digitalWrite(pumpRelayPin, LOW);
-    digitalWrite(solenoidRelayPin, LOW);
-    Serial.println("0,X,off,closed");
-    repeatVal = 0;
-  }
+  Serial.print("SSV: ");
+  Serial.println(SSV);
+  Serial.print("BSV: ");
+  Serial.println(BSV);
+  Serial.print("repeatVal: ");
   Serial.println(repeatVal);
-  //delay(1000);  // Adjust to suit your sampling rate
+  
+  if (SSV >= 400) {
+    if (BSV < 49) {
+      //s1,b0,pump on,valve closed
+      if (repeatVal > 100) { 
+      digitalWrite(pumpRelayPin, HIGH);
+      digitalWrite(valveRelayPin, LOW);
+      Serial.println("1,0,on,closed");
+      }
+      if (repeatVal <= 100) {
+          repeatVal++;
+      }
+    } else if (BSV >= 100) {
+      //s1,b1,pump off,valve open
+      digitalWrite(pumpRelayPin, LOW);
+      digitalWrite(valveRelayPin, HIGH);
+      Serial.println("1,1,off,open");
+      delay(300000);
+      repeatVal = 0;
+    }
+  } else {
+    if (repeatVal != -1) {
+      //s0,bX,pump off,valve closed
+      digitalWrite(pumpRelayPin, LOW);
+      digitalWrite(valveRelayPin, HIGH);
+      Serial.println("0,X,off,open(temp)");
+      delay(300000);
+      digitalWrite(valveRelayPin, LOW);
+    }
+    Serial.println("0,X,off,closed");
+    repeatVal = -1;
+  }
+  Serial.println("repeatVal: ");
+  Serial.print(repeatVal);
+  Serial.println(" ");
+  delay(1000);
 }
