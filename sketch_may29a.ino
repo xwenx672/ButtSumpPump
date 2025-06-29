@@ -110,6 +110,14 @@ float sumpRead() {
   return SSV;
 }
 
+void nPCV() {
+  digitalWrite(pumpRelayPin, HIGH);
+  digitalWrite(valveRelayPin, LOW);
+}
+void fPOV() {
+  digitalWrite(pumpRelayPin, LOW);
+  digitalWrite(valveRelayPin, HIGH);
+}
 float buttRead() {
   buttHighTime = pulseIn(buttSensorPin, HIGH, 1000000);
   buttLowTime = pulseIn(buttSensorPin, LOW, 1000000);
@@ -129,8 +137,7 @@ void loop() {
   while (SSV > 500) {
     SSV = sumpRead();
     webLog("SSV needs cleaning");
-    digitalWrite(pumpRelayPin, LOW);
-    digitalWrite(valveRelayPin, HIGH);
+    fPOV();
     delay(10000);
     server.handleClient();
   }
@@ -138,8 +145,7 @@ void loop() {
   while (BSV > 500) {
     BSV = buttRead();
     webLog("BSV needs cleaning");
-    digitalWrite(pumpRelayPin, LOW);
-    digitalWrite(valveRelayPin, HIGH);
+    fPOV();
     delay(10000);
     server.handleClient();
   }
@@ -148,28 +154,22 @@ void loop() {
   webLog("BSV: " + String(BSV));
   webLog("currentLoop: " + String(currentLoop));
 
-  if (SSV > 50) {
+  if (SSV > 00) {
     if (BSV < 50) {
-      digitalWrite(pumpRelayPin, HIGH);
-      digitalWrite(valveRelayPin, LOW);
-      webLog("1,0,on,closed");
+      nPCV();
+      webLog("nPCV");
       repeatVal = 0;
     } else if (BSV > 50) {
-      digitalWrite(pumpRelayPin, LOW);
-      digitalWrite(valveRelayPin, HIGH);
-      webLog("1,1,off,open");
-      delay(300000);
+      fPOV();
+      webLog("fPOV");
+      //delay(3000);
       repeatVal = 0;
     }
   } else {
     if (repeatVal != -1) {
-      digitalWrite(pumpRelayPin, LOW);
-      digitalWrite(valveRelayPin, HIGH);
-      webLog("0,X,off,open(temp)");
-      delay(300000);
-      digitalWrite(valveRelayPin, LOW);
+      fPOV();
     }
-    webLog("0,X,off,closed");
+    webLog("fPOV");
     repeatVal = -1;
   }
 
