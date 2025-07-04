@@ -110,13 +110,15 @@ float sumpRead() {
   return SSV;
 }
 
-void nPCV() {
+void onPumpCloseValve() {
   digitalWrite(pumpRelayPin, HIGH);
-  digitalWrite(valveRelayPin, LOW);
-}
-void fPOV() {
-  digitalWrite(pumpRelayPin, LOW);
   digitalWrite(valveRelayPin, HIGH);
+  webLog("onPumpCloseValve");
+}
+void offPumpOpenValve() {
+  digitalWrite(pumpRelayPin, LOW);
+  digitalWrite(valveRelayPin, LOW);
+  webLog("offPumpOpenValve");
 }
 float buttRead() {
   buttHighTime = pulseIn(buttSensorPin, HIGH, 1000000);
@@ -129,51 +131,69 @@ float buttRead() {
 }
 
 void loop() {
-  server.handleClient();
+  SSV = 0;
+  BSV = 0;
   currentLoop++;
   SSV = sumpRead();
   BSV = buttRead();
 
   while (SSV > 500) {
-    SSV = sumpRead();
-    webLog("SSV needs cleaning");
-    fPOV();
-    delay(10000);
-    server.handleClient();
-  }
+  SSV = sumpRead();
+  webLog("SSV: " + String(SSV) + " > 500");
+  offPumpOpenValve();
+  delay(1000);
+  server.handleClient();
+}
+
+  while (SSV < 2) {
+  SSV = sumpRead();
+  webLog("SSV: " + String(SSV) + " < 20");
+  offPumpOpenValve();
+  delay(1000);
+  server.handleClient();
+}
 
   while (BSV > 500) {
-    BSV = buttRead();
-    webLog("BSV needs cleaning");
-    fPOV();
-    delay(10000);
-    server.handleClient();
-  }
+  BSV = buttRead();
+  webLog("BSV: " + String(BSV) + " > 500");
+  offPumpOpenValve();
+  delay(1000);
+  server.handleClient();
+}
+
+  while (BSV < 2) {
+  BSV = buttRead();
+  webLog("BSV: " + String(BSV) + " < 20");
+  offPumpOpenValve();
+  delay(1000);
+  server.handleClient();
+}
+
 
   webLog("SSV: " + String(SSV));
   webLog("BSV: " + String(BSV));
   webLog("currentLoop: " + String(currentLoop));
 
-  if (SSV > 00) {
+  if (SSV > 50) {
     if (BSV < 50) {
-      nPCV();
-      webLog("nPCV");
+      onPumpCloseValve();
       repeatVal = 0;
     } else if (BSV > 50) {
-      fPOV();
-      webLog("fPOV");
+      offPumpOpenValve();
       //delay(3000);
       repeatVal = 0;
     }
   } else {
     if (repeatVal != -1) {
-      fPOV();
+      delay(20000);
+      offPumpOpenValve();
     }
-    webLog("fPOV");
+    webLog("offPumpOpenValve");
     repeatVal = -1;
   }
 
   webLog("repeatVal: " + String(repeatVal));
   webLog(" ");
+  server.handleClient();
   delay(5000);
 }
