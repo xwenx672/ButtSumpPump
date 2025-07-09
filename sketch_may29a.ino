@@ -201,23 +201,18 @@ void loop() {
 
   if (SSV > 50) {
     if (BSV < 50) {
-      if (repeatVal != -3) {
-        repeatVal = -3;
-        onPumpCloseValve();
-      }
+      onPumpCloseValve();
+      repeatVal = 0;
     } else {
-      if (repeatVal != -2) {
-        repeatVal = -2;
-        offPumpOpenValve();
-      }
+      offPumpOpenValve();
+      repeatVal = 0;
     }
   } else {
     if (repeatVal != -1) {
       delay(20000);
       repeatVal = -1;
-      offPumpOpenValve();
     }
-    //webLog("offPumpOpenValve");
+    offPumpOpenValve();
   }
 
   webLog("repeatVal: " + String(repeatVal));
