@@ -17,7 +17,7 @@ const int pumpRelayPin = 2;
 int sumpHighTime, buttHighTime, sumpLowTime, buttLowTime, currentLoop = 0;
 float voltRead, BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int repeatVal = 0;
+int repeatVal = 0, nVV = 0;
 
 // Logging function
 void webLog(String message) {
@@ -109,15 +109,39 @@ float sumpRead() {
   }
   return SSV;
 }
+void minusValveValue() {
+  if (nVV > -1) {
+    nVV--;
+  }
+}
+
+void setValve() {
+  nVV = 50;
+}
+
+int askDecreaseValve() {
+  if (nVV > 0) {
+    minusValveValue();
+    return 1;
+  } else {
+    return 0;
+  }
+}
 
 void onPumpCloseValve() {
   digitalWrite(pumpRelayPin, HIGH);
-  digitalWrite(valveRelayPin, HIGH);
+  if (!askDecreaseValve()) {
+    digitalWrite(valveRelayPin, HIGH);
+    setValve();
+  }
   webLog("onPumpCloseValve");
 }
 void offPumpOpenValve() {
   digitalWrite(pumpRelayPin, LOW);
-  digitalWrite(valveRelayPin, LOW);
+  if (!askDecreaseValve()){
+    digitalWrite(valveRelayPin, LOW);
+    setValve();
+  }
   webLog("offPumpOpenValve");
 }
 float buttRead() {
@@ -134,6 +158,7 @@ void loop() {
   SSV = 0;
   BSV = 0;
   currentLoop++;
+  minusValveValue();
   SSV = sumpRead();
   BSV = buttRead();
 
@@ -176,23 +201,27 @@ void loop() {
 
   if (SSV > 50) {
     if (BSV < 50) {
-      onPumpCloseValve();
-      repeatVal = 0;
-    } else if (BSV > 50) {
-      offPumpOpenValve();
-      //delay(3000);
-      repeatVal = 0;
+      if (repeatVal != -3) {
+        repeatVal = -3;
+        onPumpCloseValve();
+      }
+    } else {
+      if (repeatVal != -2) {
+        repeatVal = -2;
+        offPumpOpenValve();
+      }
     }
   } else {
     if (repeatVal != -1) {
       delay(20000);
+      repeatVal = -1;
       offPumpOpenValve();
     }
-    webLog("offPumpOpenValve");
-    repeatVal = -1;
+    //webLog("offPumpOpenValve");
   }
 
   webLog("repeatVal: " + String(repeatVal));
+  webLog("nVV Value: " + String(nVV));
   webLog(" ");
   server.handleClient();
   delay(5000);
