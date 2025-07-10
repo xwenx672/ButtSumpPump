@@ -17,7 +17,7 @@ const int pumpRelayPin = 2;
 int sumpHighTime, buttHighTime, sumpLowTime, buttLowTime, currentLoop = 0;
 float voltRead, BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int repeatVal = 0, nVV = 0;
+int repeatVal = 0, nVV = 50;
 
 // Logging function
 void webLog(String message) {
@@ -96,8 +96,6 @@ void setup() {
 
   server.on("/", handleRoot);
   server.begin();
-
-  //delay(10000);  // Initial delay
 }
 
 float sumpRead() {
@@ -109,8 +107,9 @@ float sumpRead() {
   }
   return SSV;
 }
+
 void minusValveValue() {
-  if (nVV > -1) {
+  if (nVV > 0) {
     nVV--;
   }
 }
@@ -130,20 +129,24 @@ int askDecreaseValve() {
 
 void onPumpCloseValve() {
   digitalWrite(pumpRelayPin, HIGH);
-  if (!askDecreaseValve()) {
+  
+  if ((!askDecreaseValve()) && (!digitalRead(valveRelayPin))) {
     digitalWrite(valveRelayPin, HIGH);
     setValve();
   }
   webLog("onPumpCloseValve");
 }
+
 void offPumpOpenValve() {
   digitalWrite(pumpRelayPin, LOW);
-  if (!askDecreaseValve()){
+  
+  if ((!askDecreaseValve()) && (digitalRead(valveRelayPin))) {
     digitalWrite(valveRelayPin, LOW);
     setValve();
   }
   webLog("offPumpOpenValve");
 }
+
 float buttRead() {
   buttHighTime = pulseIn(buttSensorPin, HIGH, 1000000);
   buttLowTime = pulseIn(buttSensorPin, LOW, 1000000);
@@ -158,7 +161,6 @@ void loop() {
   SSV = 0;
   BSV = 0;
   currentLoop++;
-  minusValveValue();
   SSV = sumpRead();
   BSV = buttRead();
 
@@ -168,7 +170,7 @@ void loop() {
   offPumpOpenValve();
   delay(1000);
   server.handleClient();
-}
+  }
 
   while (SSV < 2) {
   SSV = sumpRead();
@@ -176,7 +178,7 @@ void loop() {
   offPumpOpenValve();
   delay(1000);
   server.handleClient();
-}
+  }
 
   while (BSV > 500) {
   BSV = buttRead();
@@ -184,7 +186,7 @@ void loop() {
   offPumpOpenValve();
   delay(1000);
   server.handleClient();
-}
+  }
 
   while (BSV < 2) {
   BSV = buttRead();
@@ -192,7 +194,7 @@ void loop() {
   offPumpOpenValve();
   delay(1000);
   server.handleClient();
-}
+  }
 
 
   webLog("SSV: " + String(SSV));
