@@ -14,11 +14,20 @@ const int valveRelayPin = 4;
 const int pumpRelayPin = 2;
 
 // Global variables
-int sumpHighTime, buttHighTime, sumpLowTime, buttLowTime, currentLoop = 0;
-float voltRead, BSV = 1, SSV = 1;
+int sumpHighTime; // The highest part of the frequency.
+int buttHighTime; // The highest part of the frequency.
+int sumpLowTime; // The lowest part of the frequency.
+int buttLowTime; // The lowest part of the frequency.
+int currentLoop = 0; // The current loop.
+float BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 10, defnVV = 50; // 
+int defnPV = 10, defnVV = 50; // the values for nPV and nVV when they are reset in 'setValue()'.
 int nPV = defnPV, nVV = defnVV, loopDelayms = 5000;
+// 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 70%, 400hz = 100%
+int ssvLower = 50; // if water in sump is less than this, turn off pump.
+int ssvUpper = 50; // if water in sump is more than this, turn on pump.
+int bsvLower = 50; // if water in butt is more than this, turn off pump.
+int bsvUpper = 50; // if water in butt is less than this, turn on pump.
 
 // Logging function
 void webLog(String message) {
@@ -38,8 +47,6 @@ void webLog(String message) {
     }
   }
 }
-
-
 // Webpage handler
 void handleRoot() {
   String html = "<html><head>";
@@ -74,9 +81,6 @@ void handleRoot() {
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
-
-
-
 void setup() {
   Serial.begin(115200);
   pinMode(sumpSensorPin, INPUT);
@@ -98,8 +102,6 @@ void setup() {
   server.on("/", handleRoot);
   server.begin();
 }
-
-
 void setValue(String text) {
   if (text == "pump") {
     nPV = defnPV;
@@ -112,7 +114,6 @@ void setValue(String text) {
     webLog("Passed wrong decrease value");
   }
 }
-
 int askDecreaseValve() {
   if (nVV > 0) {
     nVV--;
@@ -121,7 +122,6 @@ int askDecreaseValve() {
     return 0;
   }
 }
-
 int askDecreasePump() {
   if (nPV > 0) {
     nPV--;
@@ -130,10 +130,9 @@ int askDecreasePump() {
     return 0;
   }
 }
-
 void onPumpCloseValve() {
     
-  if ((!askDecreasePump()) && (!digitalRead(pumpRelayPin))) {
+  if (!digitalRead(pumpRelayPin)) {
     digitalWrite(pumpRelayPin, HIGH);
     setValue("pump");
     webLog("Pump: ON");
@@ -142,10 +141,9 @@ void onPumpCloseValve() {
   if ((!askDecreaseValve()) && (!digitalRead(valveRelayPin))) {
     digitalWrite(valveRelayPin, HIGH);
     setValue("valve");
-    webLog("Valve: OPEN");
+    webLog("Valve: CLOSED");
   }
 }
-
 void offPumpOpenValve() {
   if ((!askDecreasePump()) && (digitalRead(pumpRelayPin))) {
     digitalWrite(pumpRelayPin, LOW);
@@ -155,10 +153,10 @@ void offPumpOpenValve() {
   
   if ((!askDecreaseValve()) && (digitalRead(valveRelayPin))) {
     digitalWrite(valveRelayPin, LOW);
-    webLog("Valve: CLOSED");
+    setValue("valve");
+    webLog("Valve: OPEN");
   }
 }
-
 void sumpRead() {
   SSV = 0;
   sumpHighTime = pulseIn(sumpSensorPin, HIGH, 1000000);
@@ -168,7 +166,6 @@ void sumpRead() {
     SSV = 1e6 / sumpPeriod;
   }
 }
-
 void buttRead() {
   BSV = 0;
   buttHighTime = pulseIn(buttSensorPin, HIGH, 1000000);
@@ -178,11 +175,12 @@ void buttRead() {
     BSV = 1e6 / buttPeriod;
   }
 }
-
 void errorChecking() {
   while (SSV > 500) {
     sumpRead();
     webLog("SSV: " + String(SSV) + " > 500");
+    nPV = 0;
+    nVV = 0;
     offPumpOpenValve();
     delay(1000);
     server.handleClient();
@@ -191,6 +189,8 @@ void errorChecking() {
   while (SSV < 2) {
     sumpRead();
     webLog("SSV: " + String(SSV) + " < 20");
+    nPV = 0;
+    nVV = 0;
     offPumpOpenValve();
     delay(1000);
     server.handleClient();
@@ -199,6 +199,8 @@ void errorChecking() {
   while (BSV > 500) {
     buttRead();
     webLog("BSV: " + String(BSV) + " > 500");
+    nPV = 0;
+    nVV = 0;
     offPumpOpenValve();
     delay(1000);
     server.handleClient();
@@ -207,35 +209,35 @@ void errorChecking() {
   while (BSV < 2) {
     buttRead();
     webLog("BSV: " + String(BSV) + " < 20");
+    nPV = 0;
+    nVV = 0;
     offPumpOpenValve();
     delay(1000);
     server.handleClient();
   }
 }
-
 void displayValues() {
   webLog("SSV: " + String(SSV));
   webLog("BSV: " + String(BSV));
   webLog("currentLoop: " + String(currentLoop));
   webLog("nPV: " + String(nPV));
-  webLog("nVV Value: " + String(nVV));
+  webLog("nVV: " + String(nVV));
   webLog(" ");
   server.handleClient();
 }
-
 void loop() {
   currentLoop++;
   sumpRead();
   buttRead();
   errorChecking();
 
-  if (SSV > 50) {
-    if (BSV < 100) {
+  if (SSV > ssvLower) {
+    if (BSV < bsvUpper) {
       onPumpCloseValve();
-    } else if (BSV > 100) {
+    } else if (BSV > bsvLower) {
       offPumpOpenValve();
     }
-  } else {
+  } else if (SSV < ssvUpper) {
     offPumpOpenValve();
   }
   
