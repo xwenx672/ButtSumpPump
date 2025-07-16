@@ -147,7 +147,6 @@ void onPumpCloseValve() {
 void offPumpOpenValve() {
   if ((!askDecreasePump()) && (digitalRead(pumpRelayPin))) {
     digitalWrite(pumpRelayPin, LOW);
-    setValue("pump");
     webLog("Pump: OFF");
   }
   
