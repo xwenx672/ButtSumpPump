@@ -22,7 +22,7 @@ int currentLoop = 0; // The current loop.
 float BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
 int defnPV = 10, defnVV = 50; // the values for nPV and nVV when they are reset in 'setValue()'.
-int nPV = defnPV, nVV = defnVV, loopDelayms = 5000;
+int nPV = 10, nVV = 10, loopDelayms = 5000;
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 70%, 400hz = 100%
 int ssvLower = 50; // if water in sump is less than this, turn off pump.
 int ssvUpper = 50; // if water in sump is more than this, turn on pump.
