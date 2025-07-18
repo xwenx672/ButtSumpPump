@@ -21,15 +21,14 @@ int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
 float BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 10, defnVV = 50; // the values for nPV and nVV when they are reset in 'setValue()'.
-int nPV = 10, nVV = 10, loopDelayms = 5000;
+int defnPV = 10, defnVV = 100; // the values for nPV and nVV when they are reset in 'setValue()'.
+int nPV = 10, nVV = 10, loopDelayms = 2500;
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 70%, 400hz = 100%
-int ssvLower = 50; // if water in sump is less than this, turn off pump.
-int ssvUpper = 50; // if water in sump is more than this, turn on pump.
-int bsvLower = 50; // if water in butt is more than this, turn off pump.
-int bsvUpper = 50; // if water in butt is less than this, turn on pump.
+int ssvLower = 50; // 1 (SSV > ssvLower) if water in sump is more than this, turn on pump.
+int ssvUpper = 50; // 2 (SSV < ssvUpper) if water in sump is less than this, turn off pump.
+int bsvUpper = 200; // A (BSV > bsvLower) if water in butt is more than this, turn off pump.
+int bsvLower = 50; // B (BSV < bsvUpper) if water in butt is less than this, turn on pump.
 
-// Logging function
 void webLog(String message) {
   Serial.println(message);
   logBuffer = message + "<br>" + logBuffer;  // Prepend, so newest is first
@@ -47,40 +46,49 @@ void webLog(String message) {
     }
   }
 }
-// Webpage handler
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Gray Water System</title>";
+  html += "<title>Greywater Pump Monitor v2.1.250718</title>";
   html += "<style>";
-  html += "body { font-family: Arial, sans-serif; margin: 20px; }";
-  html += "h2 { color: #333; }";
-  html += "pre { background: #f4f4f4; padding: 10px; border: 1px solid #ccc; overflow-x: auto; }";
-  html += "dl { margin-top: 10px; }";
+  html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
+  html += "h1, h2 { color: #2a2a2a; }";
+  html += "pre { background: #ffffff; padding: 10px; border: 1px solid #ccc; overflow-x: auto; }";
+  html += "dl { margin-top: 10px; background: #fff; padding: 10px; border: 1px solid #ccc; }";
   html += "dt { font-weight: bold; margin-top: 10px; }";
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h2>Gray Water System</h2>";
-  html += "<p><strong>SSV</strong> is the Sump Sensor Value.</p>";
-  html += "<p><strong>BSV</strong> is the Butt Sensor Value.</p>";
+  html += "<h1>Greywater System Status</h1>";
+
+  html += "<p>This page updates every 5 seconds to show real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
+
+  html += "<h2>Sensor Readings</h2>";
+  html += "<p><strong>SSV (Sump Sensor Value)</strong>: Measures how full the sump is based on signal frequency. Higher frequency = more water.</p>";
+  html += "<p><strong>BSV (Butt Sensor Value)</strong>: Measures how full the water butt is. Lower frequency = less water.</p>";
+
   html += "<dl>";
-  html += "<dt>Sensor Frequency Levels</dt>";
-  html += "<dd>20Hz = 0%</dd>";
-  html += "<dd>50Hz = 0% to 25%</dd>";
-  html += "<dd>100Hz = 25% to 50%</dd>";
-  html += "<dd>200Hz = 50% to 75%</dd>";
-  html += "<dd>400Hz = 75% and above </dd>";
-  html += "<dd>410Hz+ = Sensor may require cleaning</dd>";
+  html += "<dt>Sensor Frequency to Fill Level Guide</dt>";
+  html += "<dd>20Hz or less is empty</dd>";
+  html += "<dd>50Hz is ~25% full</dd>";
+  html += "<dd>100Hz is ~50% full</dd>";
+  html += "<dd>200Hz is ~75% full</dd>";
+  html += "<dd>400Hz or higher is full</dd>";
+  html += "<dd>More than 410Hz or less than 2hz and the sensor in question may require cleaning</dd>";
   html += "</dl>";
-  html += "<p><strong>nPV</strong> is used for debugging.</p>";
-  html += "<p><strong>currentLoop</strong> counts how many loops the device has completed.</p>";
-  html += "<p><strong>Be aware</strong> The firmware written for this has pauses of up to 5 minutes, so do not be surprised when nothing changes for a large period of time in some cases.</p>";
-  html += "<h2>Log</h2>";
+
+  html += "<h2>System Information</h2>";
+  html += "<p><strong>nPV (Pump Timeout)</strong>: Countdown before the pump is allowed to turn off. 0 = ready.</p>";
+  html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
+  html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
+
+  html += "<h2>Event Log</h2>";
   html += "<pre>" + logBuffer + "</pre>";
+
   html += "</body></html>";
   server.send(200, "text/html", html);
 }
+
 void setup() {
   Serial.begin(115200);
   pinMode(sumpSensorPin, INPUT);
@@ -187,7 +195,7 @@ void errorChecking() {
 
   while (SSV < 2) {
     sumpRead();
-    webLog("SSV: " + String(SSV) + " < 20");
+    webLog("SSV: " + String(SSV) + " < 2");
     nPV = 0;
     nVV = 0;
     offPumpOpenValve();
@@ -207,7 +215,7 @@ void errorChecking() {
 
   while (BSV < 2) {
     buttRead();
-    webLog("BSV: " + String(BSV) + " < 20");
+    webLog("BSV: " + String(BSV) + " < 2");
     nPV = 0;
     nVV = 0;
     offPumpOpenValve();
@@ -218,7 +226,7 @@ void errorChecking() {
 void displayValues() {
   webLog("SSV: " + String(SSV));
   webLog("BSV: " + String(BSV));
-  webLog("currentLoop: " + String(currentLoop));
+  // webLog("currentLoop: " + String(currentLoop));
   webLog("nPV: " + String(nPV));
   webLog("nVV: " + String(nVV));
   webLog(" ");
