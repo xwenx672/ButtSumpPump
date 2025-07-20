@@ -22,11 +22,12 @@ int currentLoop = 0; // The current loop.
 float BSV = 1, SSV = 1;
 float buttPeriod = 1, sumpPeriod = 1;
 int defnPV = 10, defnVV = 100; // the values for nPV and nVV when they are reset in 'setValue()'.
-int nPV = 10, nVV = 10, loopDelayms = 2500;
-// 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 70%, 400hz = 100%
+int nPV = 10, nVV = 10;
+const unsigned long loopDelayms = 2500;
+// 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
 int ssvLower = 50; // 1 (SSV > ssvLower) if water in sump is more than this, turn on pump.
 int ssvUpper = 50; // 2 (SSV < ssvUpper) if water in sump is less than this, turn off pump.
-int bsvUpper = 200; // A (BSV > bsvLower) if water in butt is more than this, turn off pump.
+int bsvUpper = 100; // A (BSV > bsvLower) if water in butt is more than this, turn off pump.
 int bsvLower = 50; // B (BSV < bsvUpper) if water in butt is less than this, turn on pump.
 
 void webLog(String message) {
@@ -80,7 +81,8 @@ void handleRoot() {
   html += "<h2>System Information</h2>";
   html += "<p><strong>nPV (Pump Timeout)</strong>: Countdown before the pump is allowed to turn off. 0 = ready.</p>";
   html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
-  html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
+  html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * loopDelayms) / 60000.0, 1) + "</p>";
+  //html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
 
   html += "<h2>Event Log</h2>";
   html += "<pre>" + logBuffer + "</pre>";
