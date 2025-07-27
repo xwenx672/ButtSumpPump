@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Update.h>
 
 const char* ssid = "BT-P7CT59";
 const char* password = "cLqXHguH3xcuDt";
@@ -21,25 +22,21 @@ int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 10, defnVV = 200; // the values for nPV and nVV when they are reset in 'setValue()'.
+int defnPV = 5, defnVV = 200; // the values for nPV and nVV when they are reset in 'setValue()'.
 int nPV = 10, nVV = 10;
 const unsigned long loopDelayms = 2500;
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
-int sumpLower = 50; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
+int sumpLower = 100; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
 int sumpUpper = 50; // 2 (sump < sumpUpper) if water in sump is less than this, turn off pump.
 int buttUpper = 100; // A (butt > buttLower) if water in butt is more than this, turn off pump.
 int buttLower = 50; // B (butt < buttUpper) if water in butt is less than this, turn on pump.
 
 void webLog(String message) {
   Serial.println(message);
-  logBuffer = message + "<br>" + logBuffer;  // Prepend, so newest is first
-
-  // Limit to ~100 lines
-  int lineCount = 0;
-  int index = 0;
+  logBuffer = message + "<br>" + logBuffer;
+  int lineCount = 0, index = 0;
   while ((index = logBuffer.indexOf("<br>", index)) != -1) {
-    lineCount++;
-    index += 4;
+    lineCount++; index += 4;
     if (lineCount > 1000) {
       int trimIndex = logBuffer.lastIndexOf("<br>");
       logBuffer = logBuffer.substring(0, trimIndex);
@@ -47,6 +44,31 @@ void webLog(String message) {
     }
   }
 }
+
+void handleUpdate() {
+  HTTPUpload& upload = server.upload();
+  if (upload.status == UPLOAD_FILE_START) {
+    Serial.printf("Update Start: %s\n", upload.filename.c_str());
+    if (!Update.begin()) Update.printError(Serial);
+  } else if (upload.status == UPLOAD_FILE_WRITE) {
+    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+      Update.printError(Serial);
+    }
+  } else if (upload.status == UPLOAD_FILE_END) {
+    if (Update.end(true)) {
+      Serial.printf("Update Success: %u bytes\nRebooting...\n", upload.totalSize);
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/plain", "Update successful. Rebooting...");
+      delay(1000); // Optional short delay before reboot
+      ESP.restart();
+    } else {
+      Update.printError(Serial);
+      server.sendHeader("Connection", "close");
+      server.send(200, "text/plain", "Update failed.");
+    }
+  }
+}
+
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
@@ -62,7 +84,7 @@ void handleRoot() {
   html += "</style></head><body>";
   html += "<h1>Greywater System Status</h1>";
 
-  html += "<p>This page updates every 5 seconds to show real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
+  html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
   html += "<h2>Sensor Readings</h2>";
   html += "<p><strong>sump (Sump Sensor Value)</strong>: Measures how full the sump is based on signal frequency. Higher frequency = more water.</p>";
@@ -83,11 +105,21 @@ void handleRoot() {
   html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
   html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * loopDelayms) / 60000.0, 1) + "</p>";
   //html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
-
+  html += "<h2>Firmware Update</h2><p><a href='/upload'>Go to firmware upload page</a></p>";
   html += "<h2>Event Log</h2>";
   html += "<pre>" + logBuffer + "</pre>";
-
+  
   html += "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleUploadPage() {
+  String html = "<html><head><title>Firmware Upload</title></head><body>";
+  html += "<h2>Upload Firmware</h2>";
+  html += "<form method='POST' action='/update' enctype='multipart/form-data'>";
+  html += "<input type='file' name='update'>";
+  html += "<input type='submit' value='Upload'>";
+  html += "</form></body></html>";
   server.send(200, "text/html", html);
 }
 
@@ -110,6 +142,8 @@ void setup() {
   Serial.println("\nWiFi connected. IP address: " + WiFi.localIP().toString());
 
   server.on("/", handleRoot);
+  server.on("/upload", handleUploadPage);
+  server.on("/update", HTTP_POST, [](){ server.send(200); }, handleUpdate);
   server.begin();
 }
 void setValue(String text) {
@@ -144,14 +178,14 @@ int askDecreasePump() {
 
 void readPins() {
   if (digitalRead(pumpRelayPin)) {
-    webLog("Pump: ON")
+    webLog("Pump: ON");
   } else { 
-    webLog("Pump: OFF")
+    webLog("Pump: OFF");
   }
   if (digitalRead(valveRelayPin)) {
-    webLog("Valve: CLOSED")
+    webLog("Valve: CLOSED");
   } else {
-    webLog("Valve: OPEN")
+    webLog("Valve: OPEN");
   }
 }
 
@@ -244,10 +278,12 @@ void displayValues() {
   server.handleClient();
 }
 void loop() {
+  //Serial.println("hi");
   currentLoop++;
   sumpRead();
   buttRead();
   errorChecking();
+  readPins();
 
   if (sump > sumpLower) {
     if (butt < buttUpper) {
