@@ -1,6 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Update.h>
+#include <ArduinoOTA.h>
 
 const char* ssid = "BT-P7CT59";
 const char* password = "cLqXHguH3xcuDt";
@@ -45,34 +45,37 @@ void webLog(String message) {
   }
 }
 
-void handleUpdate() {
-  HTTPUpload& upload = server.upload();
-  if (upload.status == UPLOAD_FILE_START) {
-    Serial.printf("Update Start: %s\n", upload.filename.c_str());
-    if (!Update.begin()) Update.printError(Serial);
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-      Update.printError(Serial);
-    }
-  } else if (upload.status == UPLOAD_FILE_END) {
-    if (Update.end(true)) {
-      Serial.printf("Update Success: %u bytes\nRebooting...\n", upload.totalSize);
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", "Update successful. Rebooting...");
-      delay(1000); // Optional short delay before reboot
-      ESP.restart();
-    } else {
-      Update.printError(Serial);
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", "Update failed.");
-    }
-  }
+void setupOTA() {
+  ArduinoOTA
+    .setPassword("Darkmagician80!")
+    .onStart([]() {
+      String type = ArduinoOTA.getCommand() == U_FLASH ? "sketch" : "filesystem";
+      webLog("Start updating " + type);
+    })
+    .onEnd([]() {
+      webLog("Update complete. Rebooting...");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+      webLog("Progress: " + String((progress * 100) / total) + "%");
+    })
+    .onError([](ota_error_t error) {
+      String errorMsg = "Error[" + String(error) + "]: ";
+      if (error == OTA_AUTH_ERROR)       errorMsg += "Auth Failed";
+      else if (error == OTA_BEGIN_ERROR) errorMsg += "Begin Failed";
+      else if (error == OTA_CONNECT_ERROR) errorMsg += "Connect Failed";
+      else if (error == OTA_RECEIVE_ERROR) errorMsg += "Receive Failed";
+      else if (error == OTA_END_ERROR)     errorMsg += "End Failed";
+      else errorMsg += "Unknown Error";
+      webLog(errorMsg);
+    });
+  ArduinoOTA.begin();
 }
+
 
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v2.1.250718</title>";
+  html += "<title>Greywater Pump Monitor v3.0.250725</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -82,14 +85,16 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater System Status</h1>";
+  html += "<h1>Greywater Pump Monitor v3.0.250725</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
-  html += "<h2>Sensor Readings</h2>";
+  html += "<h2>System Information</h2>";
   html += "<p><strong>sump (Sump Sensor Value)</strong>: Measures how full the sump is based on signal frequency. Higher frequency = more water.</p>";
   html += "<p><strong>butt (Butt Sensor Value)</strong>: Measures how full the water butt is. Lower frequency = less water.</p>";
-
+  html += "<p><strong>nPV (Pump Timeout)</strong>: Countdown before the pump is allowed to turn off. 0 = ready.</p>";
+  html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
+  html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * loopDelayms) / 60000.0, 1) + "</p>";
   html += "<dl>";
   html += "<dt>Sensor Frequency to Fill Level Guide</dt>";
   html += "<dd>20Hz or less is empty</dd>";
@@ -99,13 +104,7 @@ void handleRoot() {
   html += "<dd>400Hz or higher is full</dd>";
   html += "<dd>More than 410Hz or less than 2hz and the sensor in question may require cleaning</dd>";
   html += "</dl>";
-
-  html += "<h2>System Information</h2>";
-  html += "<p><strong>nPV (Pump Timeout)</strong>: Countdown before the pump is allowed to turn off. 0 = ready.</p>";
-  html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
-  html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * loopDelayms) / 60000.0, 1) + "</p>";
   //html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
-  html += "<h2>Firmware Update</h2><p><a href='/upload'>Go to firmware upload page</a></p>";
   html += "<h2>Event Log</h2>";
   html += "<pre>" + logBuffer + "</pre>";
   
@@ -141,9 +140,8 @@ void setup() {
   }
   Serial.println("\nWiFi connected. IP address: " + WiFi.localIP().toString());
 
+  setupOTA();
   server.on("/", handleRoot);
-  server.on("/upload", handleUploadPage);
-  server.on("/update", HTTP_POST, [](){ server.send(200); }, handleUpdate);
   server.begin();
 }
 void setValue(String text) {
@@ -228,46 +226,18 @@ void buttRead() {
   }
 }
 void errorChecking() {
-  while (sump > 500) {
-    sumpRead();
-    webLog("sump: " + String(sump) + " > 500");
-    nPV = 0;
-    nVV = 0;
-    offPumpOpenValve();
-    delay(1000);
-    server.handleClient();
-  }
-
-  while (sump < 2) {
-    sumpRead();
-    webLog("sump: " + String(sump) + " < 2");
-    nPV = 0;
-    nVV = 0;
-    offPumpOpenValve();
-    delay(1000);
-    server.handleClient();
-  }
-
-  while (butt > 500) {
-    buttRead();
-    webLog("butt: " + String(butt) + " > 500");
-    nPV = 0;
-    nVV = 0;
-    offPumpOpenValve();
-    delay(1000);
-    server.handleClient();
-  }
-
-  while (butt < 2) {
-    buttRead();
-    webLog("butt: " + String(butt) + " < 2");
-    nPV = 0;
-    nVV = 0;
-    offPumpOpenValve();
-    delay(1000);
-    server.handleClient();
+  while (sump > 500 || sump < 2 || butt > 500 || butt < 2) {
+    if (sump > 500) webLog("sump: " + String(sump) + " > 500");
+    if (sump < 2) webLog("sump: " + String(sump) + " < 2");
+    if (butt > 500) webLog("butt: " + String(butt) + " > 500");
+    if (butt < 2) webLog("butt: " + String(butt) + " < 2");
+    nPV = 0; nVV = 0; offPumpOpenValve();
+    delay(20);
+    server.handleClient(); ArduinoOTA.handle();
+    sumpRead(); buttRead();
   }
 }
+
 void displayValues() {
   webLog("sump: " + String(sump));
   webLog("butt: " + String(butt));
@@ -278,7 +248,12 @@ void displayValues() {
   server.handleClient();
 }
 void loop() {
-  //Serial.println("hi");
+  unsigned long start = millis();
+  while (millis() - start < loopDelayms) {
+    ArduinoOTA.handle();
+    server.handleClient();
+    delay(20); // Prevent watchdog timeout
+  }
   currentLoop++;
   sumpRead();
   buttRead();
@@ -297,5 +272,5 @@ void loop() {
   
   displayValues();
   
-  delay(loopDelayms);
+  //delay(loopDelayms);
 }
