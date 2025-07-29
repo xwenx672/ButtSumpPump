@@ -22,11 +22,11 @@ int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 5, defnVV = 200; // the values for nPV and nVV when they are reset in 'setValue()'.
+int defnPV = 10, defnVV = 200, subtract = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
 int nPV = 10, nVV = 10;
 const unsigned long loopDelayms = 2500;
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
-int sumpLower = 100; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
+int sumpLower = 50; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
 int sumpUpper = 50; // 2 (sump < sumpUpper) if water in sump is less than this, turn off pump.
 int buttUpper = 100; // A (butt > buttLower) if water in butt is more than this, turn off pump.
 int buttLower = 50; // B (butt < buttUpper) if water in butt is less than this, turn on pump.
@@ -47,7 +47,7 @@ void webLog(String message) {
 
 void setupOTA() {
   ArduinoOTA
-    .setPassword("Darkmagician80!")
+    .setPassword("Blueeyeswhitedragon10!")
     .onStart([]() {
       String type = ArduinoOTA.getCommand() == U_FLASH ? "sketch" : "filesystem";
       webLog("Start updating " + type);
@@ -75,7 +75,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.0.250725</title>";
+  html += "<title>Greywater Pump Monitor v3.1.250729</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -158,7 +158,7 @@ void setValue(String text) {
 }
 int askDecreaseValve() {
   if (nVV > 0) {
-    nVV--;
+    nVV = nVV - subtract;
     return 1;
   } else {
     return 0;
@@ -166,7 +166,7 @@ int askDecreaseValve() {
 }
 int askDecreasePump() {
   if (nPV > 0) {
-    nPV--;
+    nPV = nPV - subtract;
     return 1;
   } else {
     return 0;
@@ -262,11 +262,14 @@ void loop() {
 
   if (sump > sumpLower) {
     if (butt < buttUpper) {
+      subtract = 1;
       onPumpCloseValve();
     } else if (butt > buttLower) {
+      subtract = 1;
       offPumpOpenValve();
     }
   } else if (sump < sumpUpper) {
+    subtract = 5;
     offPumpOpenValve();
   }
   
