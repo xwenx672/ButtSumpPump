@@ -75,7 +75,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.1.250729</title>";
+  html += "<title>Greywater Pump Monitor v3.1.250730</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -85,7 +85,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.0.250725</h1>";
+  html += "<h1>Greywater Pump Monitor v3.1.250730</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
