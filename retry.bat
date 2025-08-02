@@ -19,8 +19,17 @@ if not exist "%BIN%" (
 
 echo Using firmware: %BIN%
 echo.
-
 :retry
+echo Testing connection to %IP%
+ping -n 1 -w 2000 %IP% > NUL
+if %errorlevel% == 1 (
+echo No connection
+timeout 1 /nobreak > NUL
+cls
+goto retry
+) else (
+echo Connection to %IP% ok
+)
 echo Trying OTA upload...
 python "%ESPOTA%" -i %IP% -p 3232 --auth="%AUTH%" --progress -f "%BIN%"
 if errorlevel 1 (
@@ -35,4 +44,4 @@ if errorlevel 1 (
 :: Re-enable Windows Defender real-time protection
 rem powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false"
 
-pause
+timeout 5 /nobreak

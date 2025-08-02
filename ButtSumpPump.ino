@@ -23,13 +23,13 @@ int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
 int defnPV = 10, defnVV = 200, subtract = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
-int nPV = 10, nVV = 10;
+int nPV = 10, nVV = 200;
 const unsigned long loopDelayms = 2500;
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
-int sumpLower = 50; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
-int sumpUpper = 50; // 2 (sump < sumpUpper) if water in sump is less than this, turn off pump.
-int buttUpper = 100; // A (butt > buttLower) if water in butt is more than this, turn off pump.
-int buttLower = 50; // B (butt < buttUpper) if water in butt is less than this, turn on pump.
+int sumpLower = 40; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
+int sumpUpper = 40; // 2 (sump < sumpUpper) if water in sump is less than this, turn off pump.
+int buttUpper = 90; // A (butt > buttLower) if water in butt is more than this, turn off pump.
+int buttLower = 40; // B (butt < buttUpper) if water in butt is less than this, turn on pump.
 
 void webLog(String message) {
   Serial.println(message);
@@ -75,7 +75,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.1.250730</title>";
+  html += "<title>Greywater Pump Monitor v3.1.250802</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -85,7 +85,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.1.250730</h1>";
+  html += "<h1>Greywater Pump Monitor v3.1.250802</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -269,7 +269,7 @@ void loop() {
       offPumpOpenValve();
     }
   } else if (sump < sumpUpper) {
-    subtract = 5;
+    subtract = 10;
     offPumpOpenValve();
   }
   
