@@ -23,13 +23,15 @@ int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
 int defnPV = 10, defnVV = 200, subtract = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
-int nPV = 10, nVV = 200;
+int nPV = 10, nVV = 10;
 const unsigned long loopDelayms = 2500;
+const unsigned int maxLineCount = 70; // How many lines the webpage shows.
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
-int sumpLower = 40; // 1 (sump > sumpLower) if water in sump is more than this, turn on pump.
-int sumpUpper = 40; // 2 (sump < sumpUpper) if water in sump is less than this, turn off pump.
-int buttUpper = 90; // A (butt > buttLower) if water in butt is more than this, turn off pump.
-int buttLower = 40; // B (butt < buttUpper) if water in butt is less than this, turn on pump.
+
+int sumpUpper = 40; // 1 (sump < sumpUpper) if water in sump is less than this, turn off pump.
+int sumpLower = 40; // 2 (sump > sumpLower) if water in sump is more than this, turn on pump. Needs to be Lower than Upper.
+int buttUpper = 40; // A (butt > buttLower) if water in butt is more than this, turn off pump.
+int buttLower = 40; // B (butt < buttUpper) if water in butt is less than this, turn on pump. Needs to be Lower than Upper.
 
 void webLog(String message) {
   Serial.println(message);
@@ -37,7 +39,7 @@ void webLog(String message) {
   int lineCount = 0, index = 0;
   while ((index = logBuffer.indexOf("<br>", index)) != -1) {
     lineCount++; index += 4;
-    if (lineCount > 1000) {
+    if (lineCount > maxLineCount) {
       int trimIndex = logBuffer.lastIndexOf("<br>");
       logBuffer = logBuffer.substring(0, trimIndex);
       break;
@@ -75,7 +77,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.1.250802</title>";
+  html += "<title>Greywater Pump Monitor v3.2.250807</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -85,7 +87,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.1.250802</h1>";
+  html += "<h1>Greywater Pump Monitor v3.2.250807</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -159,6 +161,9 @@ void setValue(String text) {
 int askDecreaseValve() {
   if (nVV > 0) {
     nVV = nVV - subtract;
+    if (nVV < 0) {
+      nVV = 0;
+    }
     return 1;
   } else {
     return 0;
@@ -167,6 +172,9 @@ int askDecreaseValve() {
 int askDecreasePump() {
   if (nPV > 0) {
     nPV = nPV - subtract;
+    if (nPV < 0) {
+      nPV = 0;
+    }
     return 1;
   } else {
     return 0;
@@ -261,15 +269,14 @@ void loop() {
   readPins();
 
   if (sump > sumpLower) {
+    subtract = 1;
     if (butt < buttUpper) {
-      subtract = 1;
       onPumpCloseValve();
     } else if (butt > buttLower) {
-      subtract = 1;
       offPumpOpenValve();
     }
   } else if (sump < sumpUpper) {
-    subtract = 10;
+    subtract = 5;
     offPumpOpenValve();
   }
   
