@@ -1,6 +1,6 @@
 @echo off
 pushd "%~dp0"
-timeout 120
+timeout 60
 
 :: Disable Windows Defender real-time protection
 rem powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"
