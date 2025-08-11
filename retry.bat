@@ -1,6 +1,40 @@
 @echo off
 pushd "%~dp0"
-timeout 60
+set "batdir=%~dp0"
+:start:
+cls
+for /f "tokens=1,2*" %%I in ('dir "%batdir%build\esp32.esp32.esp32\%latestFile%" /t:w ^| findstr /i "%latestFile%"') do (
+    set "currentMod=%%I %%J"
+)
+
+:loop:
+cls
+rem Get the newest file's last modified timestamp
+for /f "delims=" %%A in ('dir "%batdir%build\esp32.esp32.esp32\*.ino.bin" /b /a-d /o-d 2^>nul') do (
+    set "latestFile=%%A"
+    goto gotFile
+)
+echo Does not exist
+timeout 1 /nobreak > NUL
+goto loop
+
+:gotFile:
+echo Found ino
+for /f "tokens=1,2*" %%I in ('dir "%batdir%build\esp32.esp32.esp32\%latestFile%" /t:w ^| findstr /i "%latestFile%"') do (
+    set "currentMod=%%I %%J"
+)
+timeout 1 /nobreak > NUL
+
+rem Compare with last recorded timestamp
+if "%lastMod%"=="%currentMod%" (
+    echo Same file, wait a bit and loop
+    timeout /nobreak 1 > NUL
+    goto loop
+)
+
+rem New or updated file detected
+set "lastMod=%currentMod%"
+echo New file or updated: %latestFile% at %currentMod%
 
 :: Disable Windows Defender real-time protection
 rem powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $true"
