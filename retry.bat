@@ -3,8 +3,12 @@ pushd "%~dp0"
 set "batdir=%~dp0"
 :start:
 cls
+for /f "delims=" %%A in ('dir "%batdir%build\esp32.esp32.esp32\*.ino.bin" /b /a-d /o-d 2^>nul') do (
+    set "latestFile=%%A"
+)
+
 for /f "tokens=1,2*" %%I in ('dir "%batdir%build\esp32.esp32.esp32\%latestFile%" /t:w ^| findstr /i "%latestFile%"') do (
-    set "currentMod=%%I %%J"
+    set "lastMod=%%I %%J"
 )
 
 :loop:
@@ -23,11 +27,11 @@ echo Found ino
 for /f "tokens=1,2*" %%I in ('dir "%batdir%build\esp32.esp32.esp32\%latestFile%" /t:w ^| findstr /i "%latestFile%"') do (
     set "currentMod=%%I %%J"
 )
-timeout 1 /nobreak > NUL
+
 
 rem Compare with last recorded timestamp
 if "%lastMod%"=="%currentMod%" (
-    echo Same file, wait a bit and loop
+    echo Same file
     timeout /nobreak 1 > NUL
     goto loop
 )

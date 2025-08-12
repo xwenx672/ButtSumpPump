@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoOTA.h>
+#include <math.h>
 
 const char* ssid = "BT-P7CT59";
 const char* password = "cLqXHguH3xcuDt";
@@ -77,7 +78,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.2.250811</title>";
+  html += "<title>Greywater Pump Monitor v3.3.250812</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -87,7 +88,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.2.250811</h1>";
+  html += "<h1>Greywater Pump Monitor v3.3.250812</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -183,6 +184,30 @@ int askDecreasePump() {
   }
 }
 
+int askIncreaseValve() {
+  if (defnVV > nVV) {
+    nVV = nVV + subtractValve;
+    if (nVV < 0) {
+      nVV = 0;
+    }
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int askIncreasePump() {
+  if (defnPV > nPV) {
+    nPV = nPV + subtractPump;
+    if (nPV < 0) {
+      nPV = 0;
+    }
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 void readPins() {
   if (digitalRead(pumpRelayPin)) {
     webLog("Pump: ON");
@@ -197,9 +222,8 @@ void readPins() {
 }
 
 void onPumpCloseValve() {
-  if ((!askDecreasePump()) && (!digitalRead(pumpRelayPin))) {
+  if ((!askIncreasePump()) && (!digitalRead(pumpRelayPin))) {
     digitalWrite(pumpRelayPin, HIGH);
-    setValue("pump");
   } 
   if (!digitalRead(valveRelayPin)) {
     digitalWrite(valveRelayPin, HIGH);
@@ -210,7 +234,6 @@ void onPumpCloseValve() {
 void offPumpOpenValve() {
   if ((!askDecreasePump()) && (digitalRead(pumpRelayPin))) {
     digitalWrite(pumpRelayPin, LOW);
-    setValue("pump");
   }  
   if ((!askDecreaseValve()) && (digitalRead(valveRelayPin))) {
     digitalWrite(valveRelayPin, LOW);
@@ -224,7 +247,7 @@ void sumpRead() {
   sumpLowTime = pulseIn(sumpSensorPin, LOW, 1000000);
   if (sumpHighTime > 0 && sumpLowTime > 0) {
     sumpPeriod = sumpHighTime + sumpLowTime;
-    sump = 1e6 / sumpPeriod;
+    sump = round(1e6 / sumpPeriod);
   }
 }
 
@@ -234,7 +257,7 @@ void buttRead() {
   buttLowTime = pulseIn(buttSensorPin, LOW, 1000000);
   if (buttHighTime > 0 && buttLowTime > 0) {
     buttPeriod = buttHighTime + buttLowTime;
-    butt = 1e6 / buttPeriod;
+    butt = round(1e6 / buttPeriod);
   }
 }
 
@@ -275,7 +298,7 @@ void loop() {
 
   if ((sump > sumpLower) && (butt < buttUpper)) {
     subtractValve = 1;
-    subtractPump = 0;
+    subtractPump = 1;
     onPumpCloseValve();
   }
 
@@ -283,7 +306,6 @@ void loop() {
     subtractValve = 1;
     nPV = 0;
     offPumpOpenValve();
-    setValue("pump");
   }
 
   if (sump < sumpUpper) {
