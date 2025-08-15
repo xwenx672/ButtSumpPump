@@ -84,3 +84,4 @@ if errorlevel 1 (
 rem powershell -Command "Set-MpPreference -DisableRealtimeMonitoring $false"
 
 timeout 5 /nobreak
+goto start

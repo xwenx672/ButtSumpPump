@@ -78,7 +78,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.3.250812</title>";
+  html += "<title>Greywater Pump Monitor v3.4.250815</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -88,7 +88,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.3.250812</h1>";
+  html += "<h1>Greywater Pump Monitor v3.4.250815</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -98,15 +98,15 @@ void handleRoot() {
   html += "<p><strong>nPV (Pump Timeout)</strong>: Countdown before the pump is allowed to turn off. 0 = ready.</p>";
   html += "<p><strong>nVV (Valve Timeout)</strong>: Countdown before the valve is allowed to change position. 0 = ready.</p>";
   html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * loopDelayms) / 60000.0, 1) + "</p>";
-  html += "<dl>";
-  html += "<dt>Sensor Frequency to Fill Level Guide</dt>";
-  html += "<dd>20Hz or less is empty</dd>";
-  html += "<dd>50Hz is ~25% full</dd>";
-  html += "<dd>100Hz is ~50% full</dd>";
-  html += "<dd>200Hz is ~75% full</dd>";
-  html += "<dd>400Hz or higher is full</dd>";
-  html += "<dd>More than 410Hz or less than 2hz and the sensor in question may require cleaning</dd>";
-  html += "</dl>";
+  //html += "<dl>";
+  //html += "<dt>Sensor Frequency to Fill Level Guide</dt>";
+  //html += "<dd>20Hz or less is empty</dd>";
+  //html += "<dd>50Hz is ~25% full</dd>";
+  //html += "<dd>100Hz is ~50% full</dd>";
+  //html += "<dd>200Hz is ~75% full</dd>";
+  //html += "<dd>400Hz or higher is full</dd>";
+  //html += "<dd>More than 410Hz or less than 2hz and the sensor in question may require cleaning</dd>";
+  //html += "</dl>";
   //html += "<p><strong>Time On (minutes)</strong>: " + String((currentLoop * 2.5) / 60.0, 1) + "</p>";
   html += "<h2>Event Log</h2>";
   html += "<pre>" + logBuffer + "</pre>";
@@ -149,9 +149,13 @@ void setup() {
 }
 void setValue(String text) {
   if (text == "pump") {
-    nPV = defnPV;
+    if (nPV <= defnPV) {
+      nPV = defnPV;
+    }
   } else if (text == "valve") {
-    nVV = defnVV;
+    if (nVV <= defnVV){
+      nVV = defnVV;
+    }
   } else if (text == "both") {
     nPV = defnPV;
     nVV = defnVV;
@@ -209,11 +213,14 @@ int askIncreasePump() {
 }
 
 void readPins() {
+  webLog("nPV: " + String(nPV));
   if (digitalRead(pumpRelayPin)) {
     webLog("Pump: ON");
   } else { 
     webLog("Pump: OFF");
   }
+  
+  webLog("nVV: " + String(nVV));
   if (digitalRead(valveRelayPin)) {
     webLog("Valve: CLOSED");
   } else {
@@ -275,12 +282,34 @@ void errorChecking() {
 }
 
 void displayValues() {
-  webLog("sump: " + String(sump));
-  webLog("butt: " + String(butt));
-  webLog("nPV: " + String(nPV));
-  webLog("nVV: " + String(nVV));
   webLog(" ");
-  server.handleClient();
+  if ((sump > 15) && (sump < 25)) {
+    webLog("sump sensor: 0%");
+    } else if ((sump > 45) && (sump < 55)) {
+    webLog("sump sensor: 25%");
+    } else if ((sump > 95) && (sump < 105)) {
+    webLog("sump sensor: 50%");
+    } else if ((sump > 195) && (sump < 205)){
+    webLog("sump sensor: 75%");
+    } else if ((sump > 395) && (sump < 405)){
+    webLog("sump sensor: 100%");
+  }
+
+  if ((butt > 15) && (butt < 25)) {
+    webLog("butt sensor: 0%");
+    } else if ((butt > 45) && (butt < 55)) {
+    webLog("butt sensor: 25%");
+    } else if ((butt > 95) && (butt < 105)) {
+    webLog("butt sensor: 50%");
+    } else if ((butt > 195) && (butt < 205)){
+    webLog("butt sensor: 75%");
+    } else if ((butt > 395) && (butt < 405)){
+    webLog("butt sensor: 100%");
+  }
+  //webLog("sump: " + String(sump));
+  //webLog("butt: " + String(butt));
+  
+  //server.handleClient();
 }
 
 void loop() {
@@ -294,7 +323,9 @@ void loop() {
   sumpRead();
   buttRead();
   errorChecking();
+  displayValues();
   readPins();
+  
 
   if ((sump > sumpLower) && (butt < buttUpper)) {
     subtractValve = 1;
@@ -314,6 +345,14 @@ void loop() {
     offPumpOpenValve();
   }
 
-  displayValues();
+  if ((sump > 40) && (nPV = 0) && (nVV = 0)) {
+    nPV = 16;
+    nVV = 600;
+    subtractValve = 1;
+    subtractPump = 1;
+    onPumpCloseValve();
+  }
+
+  
 
 }
