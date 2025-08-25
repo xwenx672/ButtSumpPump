@@ -23,16 +23,13 @@ int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 16, defnVV = 200, subtractValve = 1, subtractPump = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
+int defnPV = 20, defnVV = 200, subtractValve = 1, subtractPump = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
 int nPV = defnPV, nVV = defnVV;
 const unsigned long loopDelayms = 2500;
 const unsigned int maxLineCount = 70; // How many lines the webpage shows.
 // 20hz = empty, 50hz = 25%, 100hz = 50%, 200hz = 75%, 400hz = 100%
 
-int sumpUpper = 90; // 1 (sump < sumpUpper) if water in sump is less than this, turn off pump.
-int sumpLower = 90; // 2 (sump > sumpLower) if water in sump is more than this, turn on pump. Needs to be Lower than Upper.
-int buttUpper = 40; // A (butt > buttLower) if water in butt is more than this, turn off pump.
-int buttLower = 40; // B (butt < buttUpper) if water in butt is less than this, turn on pump. Needs to be Lower than Upper.
+
 
 void webLog(String message) {
   Serial.println(message);
@@ -78,7 +75,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.4.250815</title>";
+  html += "<title>Greywater Pump Monitor v3.4.250825</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -88,7 +85,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.4.250815</h1>";
+  html += "<h1>Greywater Pump Monitor v3.4.250825</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -312,6 +309,11 @@ void displayValues() {
   //server.handleClient();
 }
 
+int sumpUpper = 90; // 1 (sump < sumpUpper) if water in sump is less than this, turn off pump.
+int sumpLower = 90; // 2 (sump > sumpLower) if water in sump is more than this, turn on pump. Needs to be Lower than Upper.
+int buttUpper = 40; // A (butt > buttLower) if water in butt is more than this, turn off pump.
+int buttLower = 40; // B (butt < buttUpper) if water in butt is less than this, turn on pump. Needs to be Lower than Upper.
+
 void loop() {
   unsigned long start = millis();
   while (millis() - start < loopDelayms) {
@@ -345,12 +347,13 @@ void loop() {
     offPumpOpenValve();
   }
 
-  if ((sump > 40) && (nPV = 0) && (nVV = 0)) {
-    nPV = 16;
+  if ((sump > 40) && (butt < buttUpper) && (nPV == 0) && (nVV == 0)) {
+    nPV = defnPV;
     nVV = 600;
     subtractValve = 1;
     subtractPump = 1;
-    onPumpCloseValve();
+    //onPumpCloseValve();
+    digitalWrite(pumpRelayPin, HIGH);
   }
 
   
