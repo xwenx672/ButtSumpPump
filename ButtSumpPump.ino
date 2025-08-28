@@ -23,7 +23,7 @@ int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
-int defnPV = 20, defnVV = 200, subtractValve = 1, subtractPump = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
+int defnPV = 25, defnVV = 200, subtractValve = 1, subtractPump = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
 int nPV = defnPV, nVV = defnVV;
 const unsigned long loopDelayms = 2500;
 const unsigned int maxLineCount = 70; // How many lines the webpage shows.
@@ -75,7 +75,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.4.250825</title>";
+  html += "<title>Greywater Pump Monitor v3.4.250826</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -85,7 +85,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.4.250825</h1>";
+  html += "<h1>Greywater Pump Monitor v3.4.250826</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -331,7 +331,7 @@ void loop() {
 
   if ((sump > sumpLower) && (butt < buttUpper)) {
     subtractValve = 1;
-    subtractPump = 1;
+    subtractPump = 2;
     onPumpCloseValve();
   }
 
@@ -348,7 +348,7 @@ void loop() {
   }
 
   if ((sump > 40) && (butt < buttUpper) && (nPV == 0) && (nVV == 0)) {
-    nPV = defnPV;
+    nPV = 10; //defnPV;
     nVV = 600;
     subtractValve = 1;
     subtractPump = 1;
