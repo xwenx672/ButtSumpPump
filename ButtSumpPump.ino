@@ -14,13 +14,17 @@ const int sumpSensorPin = 33;
 const int buttSensorPin = 25;
 const int valveRelayPin = 4;
 const int pumpRelayPin = 2;
+const int temp1Pin = 26;
 
 // Global variables
+int temp1Val;
 int sumpHighTime; // The highest part of the frequency.
 int buttHighTime; // The highest part of the frequency.
 int sumpLowTime; // The lowest part of the frequency.
 int buttLowTime; // The lowest part of the frequency.
 int currentLoop = 0; // The current loop.
+int deftfLoop = 3;
+int tfLoop = deftfLoop;
 float butt = 1, sump = 1;
 float buttPeriod = 1, sumpPeriod = 1;
 int defnPV = 25, defnVV = 200, subtractValve = 1, subtractPump = 1; // the values for nPV and nVV when they are reset in 'setValue()'.
@@ -75,7 +79,7 @@ void setupOTA() {
 void handleRoot() {
   String html = "<html><head>";
   html += "<meta http-equiv='refresh' content='5'>";
-  html += "<title>Greywater Pump Monitor v3.4.250826</title>";
+  html += "<title>Greywater Pump Monitor v3.4.250828</title>";
   html += "<style>";
   html += "body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; }";
   html += "h1, h2 { color: #2a2a2a; }";
@@ -85,7 +89,7 @@ void handleRoot() {
   html += "dd { margin: 0 0 10px 20px; }";
   html += "p { margin-bottom: 10px; }";
   html += "</style></head><body>";
-  html += "<h1>Greywater Pump Monitor v3.4.250826</h1>";
+  html += "<h1>Greywater Pump Monitor v3.4.250828</h1>";
 
   html += "<p>This page shows real-time status of the sump and water butt sensors, and whether the pump/valve is allowed to operate.</p>";
 
@@ -124,6 +128,7 @@ void handleUploadPage() {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(temp1Pin, INPUT);
   pinMode(sumpSensorPin, INPUT);
   pinMode(buttSensorPin, INPUT);
   pinMode(pumpRelayPin, OUTPUT);
@@ -265,6 +270,45 @@ void buttRead() {
   }
 }
 
+void temp1Read() {
+  temp1Val = 0;
+  temp1Val = analogRead(temp1Pin);
+  webLog("temp1Val: " + String(temp1Val));
+}
+
+/*
+void temp2Read() {
+  sump = 0;
+  sumpHighTime = pulseIn(sumpSensorPin, HIGH, 1000000);
+  sumpLowTime = pulseIn(sumpSensorPin, LOW, 1000000);
+  if (sumpHighTime > 0 && sumpLowTime > 0) {
+    sumpPeriod = sumpHighTime + sumpLowTime;
+    sump = round(1e6 / sumpPeriod);
+  }
+}
+
+void currentRead() {
+  sump = 0;
+  sumpHighTime = pulseIn(sumpSensorPin, HIGH, 1000000);
+  sumpLowTime = pulseIn(sumpSensorPin, LOW, 1000000);
+  if (sumpHighTime > 0 && sumpLowTime > 0) {
+    sumpPeriod = sumpHighTime + sumpLowTime;
+    sump = round(1e6 / sumpPeriod);
+  }
+}
+
+void temp2Read() {
+  sump = 0;
+  sumpHighTime = pulseIn(sumpSensorPin, HIGH, 1000000);
+  sumpLowTime = pulseIn(sumpSensorPin, LOW, 1000000);
+  if (sumpHighTime > 0 && sumpLowTime > 0) {
+    sumpPeriod = sumpHighTime + sumpLowTime;
+    sump = round(1e6 / sumpPeriod);
+  }
+}
+
+*/
+
 void errorChecking() {
   while (sump > 500 || sump < 2 || butt > 500 || butt < 2) {
     if (sump > 500) webLog("sump: " + String(sump) + " > 500");
@@ -324,18 +368,21 @@ void loop() {
   currentLoop++;
   sumpRead();
   buttRead();
-  errorChecking();
+  //errorChecking();
   displayValues();
   readPins();
+  temp1Read();
   
 
   if ((sump > sumpLower) && (butt < buttUpper)) {
+    tfLoop = deftfLoop;
     subtractValve = 1;
     subtractPump = 2;
     onPumpCloseValve();
   }
 
   if ((sump > sumpLower) && (butt > buttLower)) {
+    tfLoop = deftfLoop;
     subtractValve = 1;
     nPV = 0;
     offPumpOpenValve();
@@ -347,9 +394,10 @@ void loop() {
     offPumpOpenValve();
   }
 
-  if ((sump > 40) && (butt < buttUpper) && (nPV == 0) && (nVV == 0)) {
-    nPV = 10; //defnPV;
-    nVV = 600;
+  if ((tfLoop > 0) && (sump > 40) && (butt < buttUpper) && (nPV == 0) && (nVV == 0)) {
+    tfLoop--;
+    nPV = 2;
+    nVV = defnVV;
     subtractValve = 1;
     subtractPump = 1;
     //onPumpCloseValve();
